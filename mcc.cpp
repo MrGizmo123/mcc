@@ -65,11 +65,10 @@ int main(int argc, char** argv)
 
     assembly[0]->pretty_print(cout);
 
+    cout << "---------------------------------------------------" << endl;
+
     unordered_map<string, int> temps;
     assembly[0]->legalize(temps);
-
-    cout << "---------------------------------------------------" << endl;
-    
     assembly[0]->pretty_print(cout);
 
     cout << "---------------------------------------------------" << endl;

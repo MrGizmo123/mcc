@@ -4,7 +4,6 @@
 #include <string>
 #include "tokenizer.h"
 #include "tacky.hpp"
-#include "asm.hpp"
 
 using namespace std;
 
@@ -174,7 +173,11 @@ public:
 
     virtual ostream& pretty_print(ostream& out)
     {
-	out << " Empty Binary";
+	out << "(";
+	first->pretty_print(out);
+	out << op << " ";
+	second->pretty_print(out);
+	out << "\b) ";
 	return out;
     } 
     

@@ -36,7 +36,7 @@ deque<token> tokenize(string input)
     regex number("[0-9]+\\b");
     regex sym("=|;|\\(|\\)|\\{|\\}");
     regex unary("--|~");
-    regex binary("+|*|/");
+    regex binary("\\+|\\*|/|\\%|\\^|\\&\\&|\\&|\\|\\||!=|\\!|==|<=|>=|<|>");
     regex minus("-");
     smatch match;
 

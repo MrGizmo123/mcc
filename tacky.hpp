@@ -137,7 +137,12 @@ public:
 
     virtual void emit(vector<ASMNode*>& result)
     {
-        entry->emit(result);
+	vector<ASMNode*> asm_body;
+
+	entry->emit(asm_body);
+	
+	ASMProgram* asm_prog = new ASMProgram((ASMFunction*)(asm_body[0]));
+        result.push_back(asm_prog);
     }
 };
 
@@ -204,13 +209,29 @@ public:
 
     virtual void emit(vector<ASMNode*>& result)
     {
-        // if(op == "-")
-	// {
-	//     result.push_back(new ASMNeg(dest->to_asm(), src->to_asm()));
-	// }
-	// else if (op == "~")
-	// {
-	//     result.push_back(new ASMNot(dest->to_asm(), src->to_asm()));
-	// }
+	if(op == "+")
+	{
+	    result.push_back(new ASMAdd(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
+	else if (op == "-")
+	{
+	    result.push_back(new ASMSub(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
+	else if (op == "*")
+	{
+	    result.push_back(new ASMMul(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
+	else if (op == "/")
+	{
+	    result.push_back(new ASMDiv(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
+	else if (op == "%")
+	{
+	    result.push_back(new ASMMod(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
+	else if (op == "&")
+	{
+	    result.push_back(new ASMBitAnd(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
     }
 };

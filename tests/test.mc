@@ -1,4 +1,4 @@
 int main()
 {
-    return ~(-(69));
+    return 21 + (6 - 7) & 6;
 }

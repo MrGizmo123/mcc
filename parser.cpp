@@ -4,11 +4,26 @@
 
 #include <deque>
 #include <iostream>
+#include <string>
 
 ostream& operator<<(ostream& out, deque<token>& v);
 
 
 int counter = 0;
+
+int precedence(string op)
+{
+    if (op == "*" || op == "/" || op == "%")
+    {
+	return 30;
+    }
+    else if (op == "^")
+    {
+	return 40;
+    }
+
+    return 20;
+}
 
 IRVar* temp_name()
 {
@@ -61,7 +76,7 @@ inline token check_val(deque<token>& toks, string val, string expectation = "")
 Function* parse_function(deque<token>& tok);
 Statement* parse_statement(deque<token>& tok);
 Expression* parse_expression(deque<token>& tok,int min_precedence = 0);
-Factor* parse_factor(deque<token>& tok);
+Expression* parse_factor(deque<token>& tok);
 
 Function* parse_function(deque<token>& tok)
 {
@@ -107,21 +122,27 @@ Expression* parse_expression(deque<token>& toks, int min_precedence)
 {
     Expression* left = parse_factor(toks);
     token next = toks.front();
-    while (next.type == BINARY_OP)
+    while (next.type & BINARY && precedence(next.val) >= min_precedence)
     {
-	
+	toks.pop_front();
+	string op = next.val;
+	Expression* right = parse_expression(toks, precedence(op) + 1);
+	left = new Binary(op, left, right);
+	next = toks.front();
     }
+
+    return left;
 }
 
-Expression* parse_factor(deque<token>& toks, int min_precedence)
+Expression* parse_factor(deque<token>& toks)
 {
     token tok = pop(toks);
 
-    if (tok.type == NUMBER)
+    if (tok.type & NUMBER)
     {
 	return new Constant(stoi(tok.val));
     }
-    else if (tok.type == UNARY)
+    else if (tok.type & UNARY)
     {
 	Expression* inner = parse_expression(toks);
 	return new Unary(tok.val, inner);

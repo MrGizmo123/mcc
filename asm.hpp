@@ -137,10 +137,17 @@ public:
 	entry->pretty_print(out);
     }
 
+    virtual void legalize(unordered_map<string, int>& temps)
+    {
+	entry->legalize(temps);
+    }
+
     virtual void emit(ostream& out)
     {
 	com("program");
+	asmc("lds 0xfffe", "initialize stack pointer");
 	entry->emit(out);
+	asmc("hlt", "halt at the end of program");
     }
 };
 
@@ -241,10 +248,10 @@ public:
     virtual ASMOperand* legalize_op(unordered_map<string, int>& temps)
     {
         if (temps.count(ident) == 0)
-	{
-	    temps[ident] = temps.size(); // the size will give the offset for the stack
-	    return new ASMStack(temps[ident]);
-	}
+	    {
+		temps[ident] = temps.size(); // the size will give the offset for the stack
+		return new ASMStack(temps[ident]);
+	    }
 
 	return new ASMStack(temps[ident]);
     }
@@ -320,8 +327,8 @@ public:
     virtual void emit(ostream& out)
     {
 	com_self();
-	asm("ret");
-	asm("ret2");
+	// asm("ret");
+	// asm("ret2");
 	out << endl;
     }
 };
@@ -349,6 +356,38 @@ public:
     {
         dest = dest->legalize_op(temps);
 	src = src->legalize_op(temps);
+    }
+};
+
+class ASMBinary : public ASMInstruction
+{
+public:
+    ASMOperand* dest;
+    ASMOperand* src1;
+    ASMOperand* src2;
+    
+    ASMBinary(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : dest(_dest),
+    src1(_src1),
+    src2(_src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Binary(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+
+    virtual void legalize(unordered_map<string, int>& temps)
+    {
+        dest = dest->legalize_op(temps);
+	src1 = src1->legalize_op(temps);
+	src2 = src2->legalize_op(temps);
     }
 };
 
@@ -416,3 +455,167 @@ public:
 	out << endl << endl;
     }
 };
+
+class ASMAdd : public ASMBinary
+{
+public:
+    ASMAdd(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(_dest, _src1, _src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Add(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	emit_lda_operand(src1, out);
+	emit_ldb_operand(src2, out);
+
+	asm("add");
+
+	emit_sta_operand(dest, out);
+
+	out << endl << endl;
+    }
+    
+};
+
+class ASMSub : public ASMBinary
+{
+public:
+    ASMSub(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(_dest, _src1, _src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Sub(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	emit_lda_operand(src1, out);
+	emit_ldb_operand(src2, out);
+
+	asm("sub");
+
+	emit_sta_operand(dest, out);
+
+	out << endl << endl;
+    }
+    
+};
+
+class ASMMul : public ASMBinary
+{
+public:
+    ASMMul(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(_dest, _src1, _src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Mul(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+    
+};
+
+class ASMDiv : public ASMBinary
+{
+public:
+    ASMDiv(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(_dest, _src1, _src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Div(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+    
+};
+
+class ASMMod : public ASMBinary
+{
+public:
+    ASMMod(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(_dest, _src1, _src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Div(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+    
+};
+
+class ASMBitAnd : public ASMBinary
+{
+public:
+    ASMBitAnd(ASMOperand* _dest, ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(_dest, _src1, _src2)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "BitAnd(";
+	dest->pretty_print(out);
+	out << ", ";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	emit_lda_operand(src1, out);
+	emit_ldb_operand(src2, out);
+
+	asm("and");
+
+	emit_sta_operand(dest, out);
+
+	out << endl << endl;
+    }
+    
+    
+};
+
