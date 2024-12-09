@@ -8,11 +8,11 @@ main:
 	sub                 
 	ldsa                
 
-	;; Add(Stack(0), Imm(10), Imm(9))
+	;; Sub(Stack(0), Imm(6), Imm(7))
 
-	ldai 10              ; immediate
-	ldbi 9               ; immediate
-	add                 
+	ldai 6               ; immediate
+	ldbi 7               ; immediate
+	sub                 
 	ldra %r12            ; save the A register
 	ldrb %r13            ; save the B register
 	;; Stack
@@ -25,7 +25,7 @@ main:
 	ldbr %r13            ; restore old values
 
 
-	;; Sub(Stack(1), Imm(21), Stack(0))
+	;; Add(Stack(1), Imm(21), Stack(0))
 
 	ldai 21              ; immediate
 	ldra %r12            ; save the A register
@@ -38,7 +38,7 @@ main:
 	ldra %r13            ; auxiliary
 	ldbr %r13            ; transfer to B register
 	ldar %r12            ; put original value back in A register
-	sub                 
+	add                 
 	ldra %r12            ; save the A register
 	ldrb %r13            ; save the B register
 	;; Stack

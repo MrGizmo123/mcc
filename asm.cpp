@@ -1,7 +1,5 @@
 #include "asm.hpp"
 
-#include <vector>
-
 #define ldr(x) (x == A ? "ldar " : "ldbr ")
 
 using namespace std;

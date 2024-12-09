@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -7,6 +8,8 @@
 #include "asm.hpp"
 
 using namespace std;
+
+string uniq_label();
 
 class IRNode
 {
@@ -170,7 +173,7 @@ public:
 
     virtual void emit(vector<ASMNode*>& result)
     {
-        if(op == "-")
+	if(op == "-")
 	{
 	    result.push_back(new ASMNeg(dest->to_asm(), src->to_asm()));
 	}
@@ -232,6 +235,12 @@ public:
 	else if (op == "&")
 	{
 	    result.push_back(new ASMBitAnd(dest->to_asm(), src1->to_asm(), src2->to_asm()));
+	}
+	else if (op == "&&")
+	{
+	    string fail_label = uniq_label();
+	    result.push_back(new ASMJumpNotZero(src1->to_asm(), fail_label));
+	    result.push_back(new ASMJumpNotZero(src2->to_asm(), fail_label));	    
 	}
     }
 };

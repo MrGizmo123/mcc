@@ -7,11 +7,12 @@
 #include <iomanip>
 #include <sstream>
 
+using namespace std;
+
 #define com(c) out << "\t;; " << c << endl
 #define asm(x) out << left << "\t" << setw(20) << x << endl
 #define asmc(x,c) out << left << "\t" << setw(20) << x << " ; " << c << endl
-#define com_self() stringstream stream; pretty_print(stream); com(stream.str());
-
+#define com_self() stringstream stream; pretty_print(stream); com(stream.str())
 
 using namespace std;
 
@@ -248,10 +249,10 @@ public:
     virtual ASMOperand* legalize_op(unordered_map<string, int>& temps)
     {
         if (temps.count(ident) == 0)
-	    {
-		temps[ident] = temps.size(); // the size will give the offset for the stack
-		return new ASMStack(temps[ident]);
-	    }
+	{
+	    temps[ident] = temps.size(); // the size will give the offset for the stack
+	    return new ASMStack(temps[ident]);
+	}
 
 	return new ASMStack(temps[ident]);
     }
@@ -573,7 +574,7 @@ public:
 
     virtual void pretty_print(ostream& out)
     {
-	out << "Div(";
+	out << "Mod(";
 	dest->pretty_print(out);
 	out << ", ";
 	src1->pretty_print(out);
@@ -619,3 +620,74 @@ public:
     
 };
 
+class ASMJump : public ASMNode
+{
+public:
+    string jump_to;
+
+    ASMJump(string jmp_to)
+    :
+	jump_to(jmp_to)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Jump(" << jump_to << ")" << endl;
+    }
+};
+
+class ASMJumpZero : public ASMNode
+{
+public:
+    string jump_to;
+    ASMOperand* condition;
+
+    ASMJumpZero(ASMOperand* _condition, string jmp_to)
+    :
+	jump_to(jmp_to),
+	condition(_condition)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "JumpZero(";
+	condition->pretty_print(out);
+	out << ", " << jump_to << ")" << endl;
+    }
+};
+
+class ASMJumpNotZero : public ASMNode
+{
+public:
+    string jump_to;
+    ASMOperand* condition;
+
+    ASMJumpNotZero(ASMOperand* _condition, string jmp_to)
+    :
+	jump_to(jmp_to),
+	condition(_condition)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "JumpNotZero(";
+	condition->pretty_print(out);
+	out << ", " << jump_to << ")" << endl;
+    }
+};
+
+class ASMLabel : public ASMNode
+{
+public:
+    string name;
+
+    ASMLabel(string _name)
+    :
+	name(_name)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Label(" << name << ")" << endl;
+    }
+};
