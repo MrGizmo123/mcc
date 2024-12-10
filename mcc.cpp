@@ -46,7 +46,7 @@ int main(int argc, char** argv)
     string code = read_file(infile);
     
     deque<token> tokens = tokenize(code);
-    //cout << "Tok: " << tokens << endl;
+    cout << "Tok: " << tokens << endl;
 
     Program* p = parse(tokens);
     p->pretty_print(cout);

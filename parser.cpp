@@ -9,27 +9,37 @@
 ostream& operator<<(ostream& out, deque<token>& v);
 
 
-int counter = 0;
+int counter = 0;		// used to generate unique temp variables
+int label_count = 0;		// used to generate unique labels
 
-int precedence(string op)
-{
-    if (op == "*" || op == "/" || op == "%")
-    {
-	return 30;
-    }
-    else if (op == "^")
-    {
-	return 40;
-    }
-
-    return 20;
-}
+map<string, int> precedence = {
+    {"+"	, 45},
+    {"-"	, 45},
+    {"%"	, 50},
+    {"/"	, 50},
+    {"*"	, 50},
+    {"<"	, 35},
+    {"<="	, 35},
+    {">"	, 35},
+    {">="	, 35},
+    {"=="	, 30},
+    {"!="	, 30},
+    {"&&"	, 10},
+    {"||"	,  5},
+};
 
 IRVar* temp_name()
 {
     string result = "tmp" + to_string(counter);
     counter++;
     return new IRVar(result);
+}
+
+string uniq_label()
+{
+    string result = "label" + to_string(label_count);
+    label_count++;
+    return result;
 }
 
 inline token pop(deque<token>& tok)
@@ -122,11 +132,11 @@ Expression* parse_expression(deque<token>& toks, int min_precedence)
 {
     Expression* left = parse_factor(toks);
     token next = toks.front();
-    while (next.type & BINARY && precedence(next.val) >= min_precedence)
+    while (next.type & BINARY && precedence[next.val] >= min_precedence)
     {
 	toks.pop_front();
 	string op = next.val;
-	Expression* right = parse_expression(toks, precedence(op) + 1);
+	Expression* right = parse_expression(toks, precedence[op] + 1);
 	left = new Binary(op, left, right);
 	next = toks.front();
     }

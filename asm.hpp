@@ -12,6 +12,7 @@ using namespace std;
 #define com(c) out << "\t;; " << c << endl
 #define asm(x) out << left << "\t" << setw(20) << x << endl
 #define asmc(x,c) out << left << "\t" << setw(20) << x << " ; " << c << endl
+#define asml(x) out << left << x << ":" << endl 
 #define com_self() stringstream stream; pretty_print(stream); com(stream.str())
 
 using namespace std;
@@ -33,7 +34,7 @@ enum ASMOperandType
     PSUEDO
 };
 
-
+string uniq_label();
 
 class ASMNode
 {
@@ -634,46 +635,120 @@ public:
     {
 	out << "Jump(" << jump_to << ")" << endl;
     }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	asm("jmp " + jump_to);
+
+	out << endl << endl;
+    }
 };
 
 class ASMJumpZero : public ASMNode
 {
 public:
     string jump_to;
-    ASMOperand* condition;
 
-    ASMJumpZero(ASMOperand* _condition, string jmp_to)
+    ASMJumpZero(string jmp_to)
     :
-	jump_to(jmp_to),
-	condition(_condition)
+	jump_to(jmp_to)
     {}
 
     virtual void pretty_print(ostream& out)
     {
-	out << "JumpZero(";
-	condition->pretty_print(out);
-	out << ", " << jump_to << ")" << endl;
+	out << "JumpZero(" << jump_to << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	asmc("jz " + jump_to, "jump if zero");
+
+	out << endl << endl;
     }
 };
 
-class ASMJumpNotZero : public ASMNode
+class ASMJumpLess : public ASMNode
 {
 public:
     string jump_to;
-    ASMOperand* condition;
 
-    ASMJumpNotZero(ASMOperand* _condition, string jmp_to)
+    ASMJumpLess(string jmp_to)
     :
-	jump_to(jmp_to),
-	condition(_condition)
+	jump_to(jmp_to)
     {}
 
     virtual void pretty_print(ostream& out)
     {
-	out << "JumpNotZero(";
-	condition->pretty_print(out);
-	out << ", " << jump_to << ")" << endl;
+	out << "JumpLesser(" << jump_to << ")" << endl;
     }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	asmc("jl " + jump_to, "jump if lesser");
+
+	out << endl << endl;
+    }
+};
+
+class ASMJumpGreater : public ASMNode
+{
+public:
+    string jump_to;
+
+    ASMJumpGreater(string jmp_to)
+    :
+	jump_to(jmp_to)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "JumpGreater(" << jump_to << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	asmc("jg " + jump_to, "jump if lesser");
+
+	out << endl << endl;
+    }
+};
+
+class ASMCmp : public ASMBinary
+{
+public:
+    ASMCmp(ASMOperand* _src1, ASMOperand* _src2)
+    : ASMBinary(new ASMRegister(A), _src1, _src2) // cmp updates the flags and so has no dest operand
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Cmp(";
+	src1->pretty_print(out);
+	out << ", ";
+	src2->pretty_print(out);
+	out << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	emit_lda_operand(src1, out);
+	emit_ldb_operand(src2, out);
+
+	asm("cmp");
+
+	out << endl << endl;
+    }
+    
 };
 
 class ASMLabel : public ASMNode
@@ -689,5 +764,14 @@ public:
     virtual void pretty_print(ostream& out)
     {
 	out << "Label(" << name << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+
+	asml(name);
+
+	out << endl << endl;
     }
 };

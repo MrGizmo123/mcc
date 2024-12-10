@@ -1,13 +1,16 @@
 #pragma once
 
 #include <deque>
+#include <ostream>
 #include <string>
+#include "asm.hpp"
 #include "tokenizer.h"
 #include "tacky.hpp"
 
 using namespace std;
 
 IRVar* temp_name();
+string uniq_label();
 
 enum ASTType
 {
@@ -91,19 +94,19 @@ public:
     }
 
     virtual ostream& pretty_print(ostream& out)
-	{
-	    out << "FUNC " <<  return_type << " " << name << " :" << endl;
-	    out << "\t" << "params : ()" << endl;
-	    out << "\t" << "body: " << endl;
-
-	    for (Statement* s : body)
+    {
+	out << "FUNC " <<  return_type << " " << name << " :" << endl;
+	out << "\t" << "params : ()" << endl;
+	out << "\t" << "body: " << endl;
+	
+	for (Statement* s : body)
 	    {
 		out << "\t\t";
 		s->pretty_print(out);
 	    }
 
 	    return out;
-	} 
+    } 
 };
 
 class Program : public AST
@@ -151,9 +154,9 @@ public:
 class Binary : public Expression
 {
 public:
-    string op;
     Expression* first;
     Expression* second;
+    string op;
 
     Binary(string _op, Expression* _f, Expression* _s)
     : Expression(BINARY_AST),
@@ -167,7 +170,80 @@ public:
 	IROperand* src1 = first->emit(result);
 	IROperand* src2 = second->emit(result);
 	IRVar* dest = temp_name();
-	result.push_back(new IRBinary(op, dest, src1, src2));
+
+	if(op == "+")
+	{
+	    result.push_back(new IRAdd(dest, src1, src2));
+	}
+	else if (op == "-")
+	{
+	    result.push_back(new IRSub(dest, src1, src2));
+	}
+	else if (op == "*")
+	{
+	    result.push_back(new IRMul(dest, src1, src2));
+	}
+	else if (op == "/")
+	{
+	    result.push_back(new IRDiv(dest, src1, src2));
+	}
+	else if (op == "%")
+	{
+	    result.push_back(new IRMod(dest, src1, src2));
+	}
+	else if (op == "&")
+	{
+	    result.push_back(new IRBitAnd(dest, src1, src2));
+	}
+	else if (op == "&&")
+	{
+	    string fail_label = uniq_label();
+	    string end_label = uniq_label();
+	    result.push_back(new IRJumpZero(src1, fail_label));
+	    result.push_back(new IRJumpZero(src2, fail_label));
+	    result.push_back(new IRLoad(dest, new IRConst(1)));
+	    result.push_back(new IRJump(end_label));
+	    result.push_back(new IRLabel(fail_label));
+	    result.push_back(new IRLoad(dest, new IRConst(0)));
+	    result.push_back(new IRLabel(end_label));
+	}
+	else if (op == "||")
+	{
+	    string success_label = uniq_label();
+	    string end_label = uniq_label();
+	    result.push_back(new IRJumpNotZero(src1, success_label));
+	    result.push_back(new IRJumpNotZero(src2, success_label));
+	    result.push_back(new IRLoad(dest, new IRConst(0)));
+	    result.push_back(new IRJump(end_label));
+	    result.push_back(new IRLabel(success_label));
+	    result.push_back(new IRLoad(dest, new IRConst(1)));
+	    result.push_back(new IRLabel(end_label));
+	}
+	else if (op == "==")
+	{
+	    result.push_back(new IREqual(dest, src1, src2));
+	}
+	else if (op == "!=")
+	{
+	    result.push_back(new IRUnequal(dest, src1, src2));
+	}
+	else if (op == ">=")
+	{
+	    result.push_back(new IRGreaterEqual(dest, src1, src2));
+	}
+	else if (op == "<=")
+	{
+	    result.push_back(new IRLessEqual(dest, src1, src2));
+	}
+	else if (op == ">")
+	{
+	    result.push_back(new IRGreater(dest, src1, src2));
+	}
+	else if (op == "<")
+	{
+	    result.push_back(new IRLess(dest, src1, src2));
+	}
+	
 	return dest;
     }
 
@@ -180,8 +256,11 @@ public:
 	out << "\b) ";
 	return out;
     } 
-    
+
 };
+
+
+
 
 class Factor : public Expression
 {
@@ -206,20 +285,34 @@ public:
 class Unary : public Factor
 {
 public:
-    string op;
     Expression* inner;
+    string op;
     
     Unary(string _op, Expression* _inner)
-    : Factor(UNARY_AST),
-    op(_op),
-    inner(_inner)
+    :
+	Factor(UNARY_AST),
+	inner(_inner),
+	op(_op)
     {}
 
     virtual IROperand* emit(vector<IRNode*>& result)
     {
 	IROperand* src = inner->emit(result);
 	IRVar* dest = temp_name();
-	result.push_back(new IRUnary(op, dest, src));
+
+	if(op == "-")
+	{
+	    result.push_back(new IRNeg(dest, src));
+	}
+	else if (op == "~")
+	{
+	    result.push_back(new IRNot(dest, src));
+	}
+	else if (op == "!")	// !x is the same as x == 0
+	{
+	    result.push_back(new IREqual(dest, src, new IRConst(0)));
+	}
+	
 	return dest;
     }
 
