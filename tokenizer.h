@@ -10,12 +10,14 @@ using namespace std;
 // is of both types, e.g. "-" is of type unary and also binary
 enum token_type
 {
-    IDENT  = 0b1,
-    TYPE   = 0b1 << 1,
-    NUMBER = 0b1 << 2,
-    SYMBOL = 0b1 << 3,
-    UNARY  = 0b1 << 4,
-    BINARY = 0b1 << 5,
+    IDENT	= 0b1,
+    TYPE	= 0b1 << 1,
+    NUMBER	= 0b1 << 2,
+    SYMBOL	= 0b1 << 3,
+    UNARY	= 0b1 << 4,
+    BINARY	= 0b1 << 5,
+    CONTROL	= 0b1 << 6,
+    TERNARY	= 0b1 << 7,
 };
 
 // taken from stackoverflow: https://stackoverflow.com/questions/1448396/how-to-use-enums-as-flags-in-c

@@ -31,12 +31,14 @@ deque<token> tokenize(string input)
     
     deque<token> result;
 
+    regex control("if\\b|else\\b");
     regex ident("[a-zA-Z_]\\w*\\b");
     regex type("float\\b|int\\b");
     regex number("[0-9]+\\b");
-    regex sym("=|;|\\(|\\)|\\{|\\}");
-    regex unary("--|~|!");
-    regex binary("\\+|\\*|/|\\%|\\^|\\&\\&|\\&|\\|\\||!=|==|<=|>=|<|>");
+    regex sym("=|;|\\(|\\)|\\{|\\}|:");
+    regex unary("--|~|!|\\+\\+");
+    regex binary("\\+|\\*|/|\\%|\\^|\\&\\&|\\&|\\|\\||!=|==|<=|>=|<|>|=");
+    regex ternary("\\?");
     regex minus("-");
     smatch match;
 
@@ -47,6 +49,10 @@ deque<token> tokenize(string input)
 	if (isFound(input, match, type))
 	{
 	    t = TYPE;
+	}
+	else if (isFound(input, match, control))
+	{
+	    t = CONTROL;
 	}
 	else if (isFound(input, match, ident))
 	{
@@ -63,6 +69,10 @@ deque<token> tokenize(string input)
 	else if (isFound(input, match, binary))
 	{
 	    t = BINARY;
+	}
+	else if (isFound(input, match, ternary))
+	{
+	    t = TERNARY;
 	}
 	else if (isFound(input, match, minus))
 	{

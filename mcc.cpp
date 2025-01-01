@@ -53,6 +53,12 @@ int main(int argc, char** argv)
 
     cout << "---------------------------------------------------" << endl;
 
+    map<string, string> var_map;
+    p->resolve_variables(var_map);
+    p->pretty_print(cout);
+    
+    cout << "---------------------------------------------------" << endl;
+
     vector<IRNode*> tacky;
     IRProgram* ir_prog = (IRProgram*)p->emit(tacky);
 

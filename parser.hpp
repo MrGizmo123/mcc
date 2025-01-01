@@ -3,14 +3,24 @@
 #include <deque>
 #include <ostream>
 #include <string>
+#include <sstream>
+#include <type_traits>
+#include <vector>
 #include "asm.hpp"
 #include "tokenizer.h"
 #include "tacky.hpp"
 
 using namespace std;
 
-IRVar* temp_name();
+IRVar* temp_var();
 string uniq_label();
+string uniq_var_name(string);
+
+inline void fail(string message)
+{
+    cout << "Semantic Analysis failed. " << message << endl;
+    exit(-1);
+}
 
 enum ASTType
 {
@@ -20,24 +30,29 @@ enum ASTType
     VAR,
     RET,
     UNARY_AST,
-    BINARY_AST
+    BINARY_AST,
+    TERNARY_AST,
+    ASSIGNMENT,
+    DECLARATION,
+    CONDITIONAL
 };
 
 // abstract syntax tree (actually just a node in the AST)
 class AST
 {
-    ASTType type;
 public:
+    ASTType type;
+
     AST(ASTType _type)
-	: type(_type)
+    : type(_type)
     {}
-    
-    ASTType get_type() { return type; }
     
     virtual IRNode* emit(vector<IRNode*>& result) {
 	result.push_back(new IRNode());
 	return new IRNode();
     }
+
+    virtual void resolve_variables(map<string, string>& var_map) {}
     
     virtual ostream& pretty_print(ostream& out)
     {
@@ -46,11 +61,31 @@ public:
     } 
 };
 
-class Statement : public AST
+class BlockItem : public AST
+{
+public:
+    BlockItem(ASTType _type)
+    : AST(_type)
+    {}
+
+    virtual IRNode* emit(vector<IRNode*>& result)
+    {
+	result.push_back(new IRStatement());
+	return new IRNode();
+    }
+
+    virtual ostream& pretty_print(ostream& out)
+    {
+	out << "Block Item" << endl;
+	return out;
+    } 
+};
+
+class Statement : public BlockItem
 {
 public:
     Statement(ASTType _type)
-	: AST(_type)
+    : BlockItem(_type)
     {}
 
     virtual IRNode* emit(vector<IRNode*>& result)
@@ -67,30 +102,40 @@ public:
 };
 
 
+
 class Function : public AST
 {
 public:
     string name;
     string return_type;
-    deque<Statement*> body;
-    Function(string _name, string _return_type, deque<Statement*> _body)
-	: AST(FUNC),
-	  name(_name),
-	  return_type(_return_type),
-	  body(_body)
+    deque<BlockItem*> body;
+    Function(string _name, string _return_type, deque<BlockItem*> _body)
+    : AST(FUNC),
+    name(_name),
+    return_type(_return_type),
+    body(_body)
     {}
 
     virtual IRNode* emit(vector<IRNode*>& result)
     {
 	vector<IRNode*> result_body;
-	for (Statement* s : body)
-	{
+	for (BlockItem* s : body) {
 	    s->emit(result_body);
 	}
+
+	// all functions have a return 0 at the end
+	result_body.push_back(new IRReturn(new IRConst(0)));
 
 	IRFunction* this_func = new IRFunction(name, result_body);
 	result.push_back(this_func);
 	return this_func;
+    }
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	for (BlockItem* b : body) {
+	    b->resolve_variables(var_map);
+	}
     }
 
     virtual ostream& pretty_print(ostream& out)
@@ -99,13 +144,12 @@ public:
 	out << "\t" << "params : ()" << endl;
 	out << "\t" << "body: " << endl;
 	
-	for (Statement* s : body)
-	    {
-		out << "\t\t";
-		s->pretty_print(out);
-	    }
-
-	    return out;
+	for (BlockItem* s : body) {
+	    out << "\t\t";
+	    s->pretty_print(out);
+	}
+	
+	return out;
     } 
 };
 
@@ -123,6 +167,11 @@ public:
         IRFunction* ir_entry = (IRFunction*)entry->emit(result);
 	return new IRProgram(ir_entry);
     }
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	entry->resolve_variables(var_map);
+    }
     
     virtual ostream& pretty_print(ostream& out)
     {
@@ -131,11 +180,11 @@ public:
     } 
 };
 
-class Expression : public AST
+class Expression : public Statement
 {
 public:
     Expression(ASTType _type)
-	: AST(_type)
+    : Statement(_type)
     {}
 
     virtual IROperand* emit(vector<IRNode*>& result)
@@ -149,6 +198,66 @@ public:
 	out << " Empty Expression ";
 	return out;
     } 
+};
+
+
+class Declaration : public BlockItem
+{
+    string name;		// identifier
+    Expression* val;
+
+public:
+    Declaration(string _name, Expression* _val)
+    :
+	BlockItem(DECLARATION),
+	name(_name),
+	val(_val)
+    {}
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	if (var_map.count(name) > 0)
+	{
+	    fail("Redeclaration of variable " + name);
+	}
+
+	string unique_name = uniq_var_name(name);
+
+	var_map[name] = unique_name;
+
+	if (val)		// check if initializer value exists
+	{
+	    val->resolve_variables(var_map);
+	}
+
+	name = unique_name;
+    }
+
+    virtual IRNode* emit(vector<IRNode*>& result)
+    {
+	if (val)
+	{
+	    IRVar* dest_var = new IRVar(name);
+	    IROperand* value = val->emit(result);
+	    IRLoad* result_op = new IRLoad(dest_var, value);
+	    result.push_back(result_op);
+	    return result_op;
+	}
+
+	return new IRNode();
+    }
+
+    virtual ostream& pretty_print(ostream& out)
+    {
+	out << "DECLARE " << name;
+	if (val)
+	{
+	    out << " = ";
+	    val->pretty_print(out);
+	}
+	out << endl;
+	return out;
+    }
 };
 
 class Binary : public Expression
@@ -165,11 +274,17 @@ public:
     second(_s)
     {}
 
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	first->resolve_variables(var_map);
+	second->resolve_variables(var_map);
+    }
+
     virtual IROperand* emit(vector<IRNode*>& result)
     {
 	IROperand* src1 = first->emit(result);
 	IROperand* src2 = second->emit(result);
-	IRVar* dest = temp_name();
+	IRVar* dest = temp_var();
 
 	if(op == "+")
 	{
@@ -295,10 +410,15 @@ public:
 	op(_op)
     {}
 
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	inner->resolve_variables(var_map);
+    }
+
     virtual IROperand* emit(vector<IRNode*>& result)
     {
 	IROperand* src = inner->emit(result);
-	IRVar* dest = temp_name();
+	IRVar* dest = temp_var();
 
 	if(op == "-")
 	{
@@ -312,6 +432,14 @@ public:
 	{
 	    result.push_back(new IREqual(dest, src, new IRConst(0)));
 	}
+	else if (op == "++")
+	{
+	    result.push_back(new IRAdd(dest, src, new IRConst(1)));
+	}
+	else if (op == "--")
+	{
+	    result.push_back(new IRSub(dest, src, new IRConst(1)));
+	}
 	
 	return dest;
     }
@@ -320,6 +448,48 @@ public:
     {
 	out << op;
 	inner->pretty_print(out);
+	return out;
+    } 
+};
+
+class PostfixUnary : public Factor
+{
+public:
+    Expression* inner;
+    string op;
+    
+    PostfixUnary(string _op, Expression* _inner)
+    :
+	Factor(UNARY_AST),
+	inner(_inner),
+	op(_op)
+    {}
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	inner->resolve_variables(var_map);
+    }
+
+    virtual IROperand* emit(vector<IRNode*>& result)
+    {
+	IROperand* src = inner->emit(result);
+
+	if (op == "++")
+	{
+	    result.push_back(new IRAdd(src, src, new IRConst(1)));
+	}
+	else if (op == "--")
+	{
+	    result.push_back(new IRSub(src, src, new IRConst(1)));
+	}
+	
+	return src;
+    }
+
+    virtual ostream& pretty_print(ostream& out)
+    {
+	inner->pretty_print(out);
+	out << op;
 	return out;
     } 
 };
@@ -355,9 +525,19 @@ public:
 	  name(_name)
     {}
 
-    virtual IRVar* emit(vector<IRNode*>& result)
+    virtual IROperand* emit(vector<IRNode*>& result)
     {
 	return new IRVar(name);
+    }
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	if (var_map.count(name) == 0)
+	{
+	    fail("Variable " + name + " Not declared");
+	}
+
+	name = var_map[name];
     }
 
     virtual ostream& pretty_print(ostream& out)
@@ -367,15 +547,124 @@ public:
     } 
 };
 
+class Assignment : public Expression
+{
+    Expression* dest;
+    Expression* src;
+
+public:
+    Assignment(Expression* _dest, Expression* _src)
+    :
+	Expression(ASSIGNMENT),
+	dest(_dest),
+	src(_src)
+    {}
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	if (dest->type != VAR)
+	{
+	    stringstream s;
+	    dest->pretty_print(s);
+	    fail("Invalid lvalue " + s.str());
+	}
+
+	src->resolve_variables(var_map);
+	dest->resolve_variables(var_map);
+    }
+
+    virtual IROperand* emit(vector<IRNode*>& result)
+    {
+	IROperand* dest_var = dest->emit(result);
+	IROperand* value = src->emit(result);
+	IRLoad* result_op = new IRLoad(dest_var, value);
+	result.push_back(result_op);
+	return value;		// assignement returns the assigned value
+    }
+
+    virtual ostream& pretty_print(ostream& out)
+    {
+	out << "ASSIGN";
+	dest->pretty_print(out);
+	out << "= ";
+	src->pretty_print(out);
+	out << endl;
+	return out;
+    } 
+};
+
+class TernaryConditional : public Expression
+{
+public:
+    Expression* cond;
+    Expression* true_val;
+    Expression* false_val;
+
+    TernaryConditional(Expression* _cond, Expression* _true_val, Expression* _false_val)
+    :
+	Expression(TERNARY_AST),
+	cond(_cond),
+	true_val(_true_val),
+	false_val(_false_val)
+    {}
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	cond->resolve_variables(var_map);
+	true_val->resolve_variables(var_map);
+	false_val->resolve_variables(var_map);
+    }
+
+    virtual IROperand* emit(vector<IRNode*>& result)
+    {
+	IROperand* cond_ptr = cond->emit(result);
+
+	IROperand* result_var = temp_var();
+	
+	string false_label = uniq_label();
+	string end_label = uniq_label();
+	
+	result.push_back(new IRJumpZero(cond_ptr, false_label));
+	IROperand* true_result = true_val->emit(result);
+	result.push_back(new IRLoad(result_var, true_result));
+	result.push_back(new IRJump(end_label));
+	result.push_back(new IRLabel(false_label));
+	IROperand* false_result = false_val->emit(result);
+	result.push_back(new IRLoad(result_var, false_result));
+	result.push_back(new IRLabel(end_label));
+
+	return result_var;
+    }
+
+    ostream& pretty_print(ostream& out)
+    {
+	out << "(TERNARY";
+	cond->pretty_print(out);
+	out << " ? ";
+	true_val->pretty_print(out);
+	out << " : ";
+	false_val->pretty_print(out);
+	out << ")" <<  endl;
+	return out;
+    } 
+    
+};
+
 class Return : public Statement
 {
 public:
     Expression* val;
     Return(Expression* _val)
-	: Statement(RET),
-	  val(_val)
+    :
+	Statement(RET),
+	val(_val)
     {}
 
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	val->resolve_variables(var_map);
+    }
+    
     virtual IROperand* emit(vector<IRNode*>& result)
     {
 	IROperand* res_val = val->emit(result);
@@ -392,6 +681,81 @@ public:
 	out << endl;
 	return out;
     } 
+};
+
+class Condition : public Statement
+{
+public:
+    Expression* cond;
+    BlockItem* then;
+    Statement* otherwise;
+
+    // otherwise (else clause may not exist, hence that pointer could be zero)
+    Condition(Expression* _cond, Statement* _then, Statement* _else)
+    :
+	Statement(CONDITIONAL),
+	cond(_cond),
+	then(_then),
+	otherwise(_else)
+    {}
+
+    virtual void resolve_variables(map<string, string>& var_map)
+    {
+	cond->resolve_variables(var_map);
+	then->resolve_variables(var_map);
+
+	if (otherwise)
+	    otherwise->resolve_variables(var_map);
+    }
+
+    virtual IROperand* emit(vector<IRNode*>& result)
+    {
+	IROperand* cond_ptr = cond->emit(result);
+
+	if (otherwise)		// if the condition has an else clause
+	{
+	    string else_label = uniq_label();
+	    string end_label = uniq_label();
+	
+	    result.push_back(new IRJumpZero(cond_ptr, else_label));
+	    then->emit(result);
+	    result.push_back(new IRJump(end_label));
+	    result.push_back(new IRLabel(else_label));
+
+	    otherwise->emit(result);
+
+	    result.push_back(new IRLabel(end_label));
+	}
+	else			// lone if statement
+	{
+	    string end_label = uniq_label();
+	
+	    result.push_back(new IRJumpZero(cond_ptr, end_label));
+	    then->emit(result);
+	    result.push_back(new IRLabel(end_label));
+	}
+
+	return new IROperand();
+    }
+
+    ostream& pretty_print(ostream& out)
+    {
+	out << "(IF ";
+	cond->pretty_print(out);
+	out << ":" << endl;
+	then->pretty_print(out);
+	
+	if (otherwise)
+	{
+	    out << "ELSE:" << endl;
+	    otherwise->pretty_print(out);
+	}
+
+	out << ")" << endl;
+	
+	return out;
+    } 
+    
 };
 
 
