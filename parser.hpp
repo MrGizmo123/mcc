@@ -1,10 +1,10 @@
 #pragma once
 
+#include <algorithm>
 #include <deque>
 #include <ostream>
 #include <string>
 #include <sstream>
-#include <type_traits>
 #include <vector>
 #include "asm.hpp"
 #include "tokenizer.h"
@@ -15,6 +15,7 @@ using namespace std;
 IRVar* temp_var();
 string uniq_label();
 string uniq_var_name(string);
+
 
 inline void fail(string message)
 {
@@ -34,8 +35,26 @@ enum ASTType
     TERNARY_AST,
     ASSIGNMENT,
     DECLARATION,
-    CONDITIONAL
+    CONDITIONAL,
+    BLOCK,
+    COMPOUND,
+    FOR,
+    WHILE,
+    DO_WHILE,
+    BREAK,
+    CONTINUE
 };
+
+class variable_label
+{
+public:
+    string name;
+    bool declared_in_this_scope;
+
+    variable_label(string _name = "", bool _decl = true) : name(_name), declared_in_this_scope(_decl) {}
+};
+
+void copy_var_map(map<string, variable_label>& dest, map<string, variable_label> src);
 
 // abstract syntax tree (actually just a node in the AST)
 class AST
@@ -52,7 +71,7 @@ public:
 	return new IRNode();
     }
 
-    virtual void resolve_variables(map<string, string>& var_map) {}
+    virtual void resolve_variables(map<string, variable_label>& var_map) {}
     
     virtual ostream& pretty_print(ostream& out)
     {
@@ -81,6 +100,44 @@ public:
     } 
 };
 
+class Block : public AST
+{
+public:
+    vector<BlockItem*> items;
+    
+    Block(vector<BlockItem*> _items)
+    :
+	AST(BLOCK),
+	items(_items)
+    {}
+
+    virtual IRNode* emit(vector<IRNode*>& result)
+    {
+	for (BlockItem* s : items) {
+	    s->emit(result);
+	}
+
+	return new IRNode();
+    }
+
+    virtual void resolve_variables(map<string, variable_label>& var_map)
+    {
+	map<string, variable_label> var_map_copy;
+
+	copy_var_map(var_map_copy, var_map);
+	
+	for (BlockItem* b : items) {
+	    b->resolve_variables(var_map_copy);
+	}
+    }
+    
+    virtual ostream& pretty_print(ostream& out)
+    {
+	out << "Block" << endl;
+	return out;
+    } 
+};
+
 class Statement : public BlockItem
 {
 public:
@@ -101,27 +158,26 @@ public:
     } 
 };
 
-
-
 class Function : public AST
 {
 public:
     string name;
     string return_type;
-    deque<BlockItem*> body;
-    Function(string _name, string _return_type, deque<BlockItem*> _body)
-    : AST(FUNC),
-    name(_name),
-    return_type(_return_type),
-    body(_body)
+    Block* body;
+    
+    Function(string _name, string _return_type, Block* _body)
+    :
+	AST(FUNC),
+	name(_name),
+	return_type(_return_type),
+	body(_body)
     {}
 
     virtual IRNode* emit(vector<IRNode*>& result)
     {
 	vector<IRNode*> result_body;
-	for (BlockItem* s : body) {
-	    s->emit(result_body);
-	}
+
+	body->emit(result_body);
 
 	// all functions have a return 0 at the end
 	result_body.push_back(new IRReturn(new IRConst(0)));
@@ -131,11 +187,9 @@ public:
 	return this_func;
     }
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
-	for (BlockItem* b : body) {
-	    b->resolve_variables(var_map);
-	}
+	body->resolve_variables(var_map);
     }
 
     virtual ostream& pretty_print(ostream& out)
@@ -144,7 +198,7 @@ public:
 	out << "\t" << "params : ()" << endl;
 	out << "\t" << "body: " << endl;
 	
-	for (BlockItem* s : body) {
+	for (BlockItem* s : body->items) {
 	    out << "\t\t";
 	    s->pretty_print(out);
 	}
@@ -168,7 +222,7 @@ public:
 	return new IRProgram(ir_entry);
     }
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	entry->resolve_variables(var_map);
     }
@@ -184,7 +238,8 @@ class Expression : public Statement
 {
 public:
     Expression(ASTType _type)
-    : Statement(_type)
+    :
+	Statement(_type)
     {}
 
     virtual IROperand* emit(vector<IRNode*>& result)
@@ -214,16 +269,19 @@ public:
 	val(_val)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	if (var_map.count(name) > 0)
 	{
-	    fail("Redeclaration of variable " + name);
+	    if (var_map[name].declared_in_this_scope)
+	    {
+		fail("Redeclaration of variable " + name);
+	    }
 	}
 
 	string unique_name = uniq_var_name(name);
 
-	var_map[name] = unique_name;
+	var_map[name] = variable_label(unique_name);
 
 	if (val)		// check if initializer value exists
 	{
@@ -274,7 +332,7 @@ public:
     second(_s)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	first->resolve_variables(var_map);
 	second->resolve_variables(var_map);
@@ -374,9 +432,6 @@ public:
 
 };
 
-
-
-
 class Factor : public Expression
 {
 public:
@@ -410,7 +465,7 @@ public:
 	op(_op)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	inner->resolve_variables(var_map);
     }
@@ -465,7 +520,7 @@ public:
 	op(_op)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	inner->resolve_variables(var_map);
     }
@@ -530,14 +585,14 @@ public:
 	return new IRVar(name);
     }
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	if (var_map.count(name) == 0)
 	{
 	    fail("Variable " + name + " Not declared");
 	}
 
-	name = var_map[name];
+	name = var_map[name].name;
     }
 
     virtual ostream& pretty_print(ostream& out)
@@ -560,7 +615,7 @@ public:
 	src(_src)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	if (dest->type != VAR)
 	{
@@ -608,7 +663,7 @@ public:
 	false_val(_false_val)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	cond->resolve_variables(var_map);
 	true_val->resolve_variables(var_map);
@@ -660,7 +715,7 @@ public:
 	val(_val)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	val->resolve_variables(var_map);
     }
@@ -699,7 +754,7 @@ public:
 	otherwise(_else)
     {}
 
-    virtual void resolve_variables(map<string, string>& var_map)
+    virtual void resolve_variables(map<string, variable_label>& var_map)
     {
 	cond->resolve_variables(var_map);
 	then->resolve_variables(var_map);
@@ -758,6 +813,97 @@ public:
     
 };
 
+class Compound : public Statement
+{
+public:
+    Block* body;
+
+    Compound(Block* _body)
+    :
+	Statement(COMPOUND),
+	body(_body)
+    {}
+
+    virtual void resolve_variables(map<string, variable_label>& var_map)
+    {
+	body->resolve_variables(var_map);
+    }
+
+    virtual IROperand* emit(vector<IRNode*>& result)
+    {
+	for (BlockItem* b : body->items) {
+	    b->emit(result);
+	}
+
+	return new IROperand();
+    }
+
+    ostream& pretty_print(ostream& out)
+    {
+	for (BlockItem* b : body->items) {
+	    b->pretty_print(out);
+	}
+	
+	return out;
+    } 
+};
+
+// class For : public Statement
+// {
+// public:
+//     ForInit* initializer;
+//     Expression* condition;
+//     Expression* post;		// most commonly its increment
+//     string label;
+
+//     For(ForInit* _initializer,
+// 	Expression* _condition,
+// 	Expression* _post)
+//     :
+// 	Statement(FOR),
+// 	initializer(_initializer),
+// 	condition(_condition),
+// 	post(_post),
+// 	label("")
+//     {}
+
+//     virtual IRNode* emit(vector<IRNode*>& result) {
+// 	result.push_back(new IRNode());
+// 	return new IRNode();
+//     }
+
+//     virtual void resolve_variables(map<string, variable_label>& var_map)
+//     {
+// 	initializer->resolve_variables(var_map);
+//     }
+    
+//     virtual ostream& pretty_print(ostream& out)
+//     {
+// 	out << "Empty AST" << endl;
+// 	return out;
+//     } 
+    
+// };
+
+class While : public Statement
+{
+    
+};
+
+class DoWhile : public Statement
+{
+    
+};
+
+class Break : public Statement
+{
+    
+};
+
+class Continue : public Statement
+{
+    
+};
 
 Program* parse(deque<token>& tokens);
 ostream& operator<<(ostream& out, AST& ast);

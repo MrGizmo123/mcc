@@ -3,10 +3,10 @@ int main()
     int a = 2;
     int b;
 
-    if (a > 2)
-	b = a + 2;
-    else
-	b = a + 3;
+    if (a > 2) {
+	int b = 4;
+	a = b + 2;
+    }
 
     return b;
 }

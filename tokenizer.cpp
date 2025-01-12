@@ -31,7 +31,7 @@ deque<token> tokenize(string input)
     
     deque<token> result;
 
-    regex control("if\\b|else\\b");
+    regex control("if\\b|else\\b|while\\b|for\\b|break\\b|continue\\b|do\\b");
     regex ident("[a-zA-Z_]\\w*\\b");
     regex type("float\\b|int\\b");
     regex number("[0-9]+\\b");

@@ -98,19 +98,17 @@ public:
     virtual void pretty_print(ostream& out)
     {
 	out << name << ":" << endl;
-	for (ASMNode* i : body)
-	    {
-		out << "\t";
-		i->pretty_print(out);
-	    }
+	for (ASMNode* i : body) {
+	    out << "\t";
+	    i->pretty_print(out);
+	}
     }
 
     virtual void legalize(unordered_map<string, int>& temps)
     {
-	for (ASMNode* i : body)
-	    {
-		i->legalize(temps);
-	    }
+	for (ASMNode* i : body) {
+	    i->legalize(temps);
+	}
 	stack_space = new ASMAllocateStack(temps.size()); // save how many locations we need to reserve on the stack
     }
 
@@ -120,10 +118,9 @@ public:
 	
 	stack_space->emit(out);	// function prologue
 	
-	for (ASMNode* i : body)
-	    {
-		i->emit(out);
-	    }
+	for (ASMNode* i : body) {
+	    i->emit(out);
+	}
     }
 };
 

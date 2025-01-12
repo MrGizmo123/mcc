@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 
     cout << "---------------------------------------------------" << endl;
 
-    map<string, string> var_map;
+    map<string, variable_label> var_map;
     p->resolve_variables(var_map);
     p->pretty_print(cout);
     

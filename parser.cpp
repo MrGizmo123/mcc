@@ -51,6 +51,15 @@ string uniq_var_name(string orig_name)
     return orig_name + "." + to_string(variable_count++);
 }
 
+void copy_var_map(map<string, variable_label>& dest, map<string, variable_label> src)
+{
+    for (auto i=src.begin();i!=src.end();++i) {
+	dest[i->first] = variable_label(i->second.name, false);
+    }
+}
+
+
+
 inline token pop(deque<token>& tok)
 {
     token result = tok.front();
@@ -97,40 +106,48 @@ BlockItem* parse_block_item(deque<token>& tok);
 Expression* parse_expression(deque<token>& tok,int min_precedence = 0);
 Expression* parse_factor(deque<token>& tok);
 Statement* parse_statement(deque<token>& toks);
+Block* parse_block(deque<token>& toks);
 
-Function* parse_function(deque<token>& tok)
+Block* parse_block(deque<token>& toks)
 {
-    token return_type = check_type(tok, TYPE, "return type");
-
-    token func_name = check_type(tok, IDENT, "function name");
-
-    token open_paren = check_val(tok, "(", "open paren");
-
-    token close_paren = check_val(tok, ")", "close paren");
-
-    token open_brace = check_val(tok, "{", "open brace");
-
-    deque<BlockItem*> body;
+    token open_brace = check_val(toks, "{", "open brace");
     
-    token next = tok.front();
+    vector<BlockItem*> body;
+    
+    token next = toks.front();
     while (next.val != "}")
     {
 	if (next.val == ";")	// skip empty statements
 	{
-	    tok.pop_front();
-	    next = tok.front();
+	    toks.pop_front();
+	    next = toks.front();
 	    continue;	    
 	}
 
 	
-	BlockItem* s = parse_block_item(tok);
+	BlockItem* s = parse_block_item(toks);
 	body.push_back(s);
-	next = tok.front();
+	next = toks.front();
     }
 
-    tok.pop_front();  // remove trailing
+    toks.pop_front();  // remove trailing
 
-    Function* result = new Function(func_name.val, return_type.val, body);
+    return new Block(body);
+}
+
+Function* parse_function(deque<token>& toks)
+{
+    token return_type = check_type(toks, TYPE, "return type");
+
+    token func_name = check_type(toks, IDENT, "function name");
+
+    token open_paren = check_val(toks, "(", "open paren");
+
+    token close_paren = check_val(toks, ")", "close paren");
+
+    Block* body_block = parse_block(toks);
+   
+    Function* result = new Function(func_name.val, return_type.val, body_block);
     return result;
 }
 
@@ -171,6 +188,11 @@ Statement* parse_statement(deque<token>& toks)
     else if (next.val == "if")
     {
 	result = parse_if_condition(toks); // if condition doesnt require semicolon at the end
+    }
+    else if (next.val == "{")
+    {
+	Block* body_block = parse_block(toks); // compound statemnt
+	result = new Compound(body_block);     // does not require semicolon at the end
     }
     else
     {
