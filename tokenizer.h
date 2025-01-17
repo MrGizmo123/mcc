@@ -37,7 +37,23 @@ public:
     
     token_type type;
     string val;
-    token(token_type _type, string _val) : type(_type), val(_val)
+    int start_index;
+    int end_index;
+    int line_number;
+    
+    token(
+	  token_type _type,
+	  string _val,
+	  int _start_index,
+	  int _end_index,
+	  int _line_number
+	  )
+    :
+	type(_type),
+	val(_val),
+	start_index(_start_index),
+	end_index(_end_index),
+	line_number(_line_number)
     {}
 };
 

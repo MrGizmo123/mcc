@@ -5,8 +5,16 @@
 #include "parser.hpp"
 #include "tokenizer.h"
 #include "CLI11.hpp"
+#include "mcc.hpp"
 
 using namespace std;
+
+string code;
+
+CodeContext get_code_context(token tok, int number_of_lines)
+{
+    
+}
 
 ostream& operator<<(ostream& out, deque<token>& v)
 {
@@ -19,7 +27,13 @@ ostream& operator<<(ostream& out, deque<token>& v)
     out << "[";
     for (token t : v)
     {
-	out << "(" << t.type << " : '" << t.val << "')" << ", ";
+	out
+	<< "(" << t.type
+	<< " : '" << t.val
+	<< "', start: " << t.start_index
+	<< ", end: " << t.end_index
+	<< ", line: " << t.line_number
+	<< ")" << ", " << endl;
     }
 
     out << "\b\b]";
@@ -43,43 +57,43 @@ int main(int argc, char** argv)
     app.add_option("-i,--input", infile, "The file to be compiled");
     CLI11_PARSE(app, argc, argv);
 
-    string code = read_file(infile);
+    code = read_file(infile);
     
     deque<token> tokens = tokenize(code);
     cout << "Tok: " << tokens << endl;
 
-    Program* p = parse(tokens);
-    p->pretty_print(cout);
+    // Program* p = parse(tokens);
+    // p->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
+    // cout << "---------------------------------------------------" << endl;
 
-    map<string, variable_label> var_map;
-    p->resolve_variables(var_map);
-    p->pretty_print(cout);
+    // map<string, variable_label> var_map;
+    // p->resolve_variables(var_map);
+    // p->pretty_print(cout);
     
-    cout << "---------------------------------------------------" << endl;
+    // cout << "---------------------------------------------------" << endl;
 
-    vector<IRNode*> tacky;
-    IRProgram* ir_prog = (IRProgram*)p->emit(tacky);
+    // vector<IRNode*> tacky;
+    // IRProgram* ir_prog = (IRProgram*)p->emit(tacky);
 
-    ir_prog->pretty_print(cout);
+    // ir_prog->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
+    // cout << "---------------------------------------------------" << endl;
 
-    vector<ASMNode*> assembly;
-    ir_prog->emit(assembly);
+    // vector<ASMNode*> assembly;
+    // ir_prog->emit(assembly);
 
-    assembly[0]->pretty_print(cout);
+    // assembly[0]->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
+    // cout << "---------------------------------------------------" << endl;
 
-    unordered_map<string, int> temps;
-    assembly[0]->legalize(temps);
-    assembly[0]->pretty_print(cout);
+    // unordered_map<string, int> temps;
+    // assembly[0]->legalize(temps);
+    // assembly[0]->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
+    // cout << "---------------------------------------------------" << endl;
 
-    assembly[0]->emit(cout);
+    // assembly[0]->emit(cout);
 
     
 }

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <deque>
 #include <ostream>
 #include <string>
@@ -254,7 +253,6 @@ public:
 	return out;
     } 
 };
-
 
 class Declaration : public BlockItem
 {
@@ -848,42 +846,41 @@ public:
     } 
 };
 
-// class For : public Statement
-// {
-// public:
-//     ForInit* initializer;
-//     Expression* condition;
-//     Expression* post;		// most commonly its increment
-//     string label;
+class For : public Statement
+{
+public:
+    BlockItem* initializer;	// can be either expression or declaration
+    Expression* condition;
+    Expression* post;		// most commonly its increment
+    string label;
 
-//     For(ForInit* _initializer,
-// 	Expression* _condition,
-// 	Expression* _post)
-//     :
-// 	Statement(FOR),
-// 	initializer(_initializer),
-// 	condition(_condition),
-// 	post(_post),
-// 	label("")
-//     {}
+    For(BlockItem* _initializer,
+	Expression* _condition,
+	Expression* _post)
+    :
+	Statement(FOR),
+	initializer(_initializer),
+	condition(_condition),
+	post(_post),
+	label("")
+    {}
 
-//     virtual IRNode* emit(vector<IRNode*>& result) {
-// 	result.push_back(new IRNode());
-// 	return new IRNode();
-//     }
+    virtual IRNode* emit(vector<IRNode*>& result) {
+	result.push_back(new IRNode());
+	return new IRNode();
+    }
 
-//     virtual void resolve_variables(map<string, variable_label>& var_map)
-//     {
-// 	initializer->resolve_variables(var_map);
-//     }
+    virtual void resolve_variables(map<string, variable_label>& var_map)
+    {
+	initializer->resolve_variables(var_map);
+    }
     
-//     virtual ostream& pretty_print(ostream& out)
-//     {
-// 	out << "Empty AST" << endl;
-// 	return out;
-//     } 
-    
-// };
+    virtual ostream& pretty_print(ostream& out)
+    {
+	out << "FOR" << endl;
+	return out;
+    }
+};
 
 class While : public Statement
 {
