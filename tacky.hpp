@@ -220,19 +220,62 @@ public:
     }
 };
 
+class IRFunctionCall : public IRStatement
+{
+public:
+    string name;
+    IROperand* dest;
+    vector<IROperand*> args;
+
+    IRFunctionCall(string _name, IROperand* _dest, vector<IROperand*>& _args)
+    :
+	name(_name),
+	dest(_dest),
+	args(_args)
+    {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Funcall " << name;
+	out << "(";
+	dest->pretty_print(out);
+	out << ", ";
+	for (IROperand* arg : args) {
+	    arg->pretty_print(out);
+	    out << ", ";
+	}
+	out << "\b\b)" << endl;
+    }
+
+    virtual void emit(vector<ASMNode*>& result)
+    {
+
+    }
+};
+
 class IRFunction : public IRNode
 {
 public:
     string name;
+    vector<string> params;
     vector<IRNode*> body;
-    IRFunction(string _name, vector<IRNode*> _body)
-	: name(_name),
-	  body(_body)
+    
+    IRFunction(string _name, vector<string>& _params, vector<IRNode*>& _body)
+    :
+	name(_name),
+	params(_params),
+	body(_body)
     {}
     
     virtual void pretty_print(ostream& out)
     {
-	out << "Func" << endl;
+	out << "Func " << name << "(";
+
+	for (string param : params) {
+	    out << param << ", ";
+	}
+	out << "\b\b)" << endl;
+	
 	for (IRNode* s : body)
 	{
 	    s->pretty_print(out);
@@ -255,20 +298,25 @@ public:
 class IRProgram : public IRNode
 {
 public:
-    IRFunction* entry;
-    IRProgram(IRFunction* _entry) : entry(_entry) {}
+    vector<IRFunction*> functions;
+    IRProgram(vector<IRFunction*>& _functions) : functions(_functions) {}
 
     virtual void pretty_print(ostream& out)
     {
 	out << "Prog" << endl;
-	entry->pretty_print(out);
+
+	for (IRFunction* f : functions) {
+	    f->pretty_print(out);
+	}
     }
 
     virtual void emit(vector<ASMNode*>& result)
     {
 	vector<ASMNode*> asm_body;
 
-	entry->emit(asm_body);
+	for (IRFunction* f  : functions) {
+	    f->emit(asm_body);
+	}
 	
 	ASMProgram* asm_prog = new ASMProgram((ASMFunction*)(asm_body[0]));
         result.push_back(asm_prog);

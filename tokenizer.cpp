@@ -1,3 +1,4 @@
+#include <iterator>
 #include <string>
 #include <regex>
 #include <deque>
@@ -36,7 +37,7 @@ deque<token> tokenize(string input)
     regex ident("[a-zA-Z_]\\w*\\b");
     regex type("float\\b|int\\b");
     regex number("[0-9]+\\b");
-    regex sym("=|;|\\(|\\)|\\{|\\}|:");
+    regex sym("=|;|\\(|\\)|\\{|\\}|:|,");
     regex unary("--|~|!|\\+\\+");
     regex binary("\\+|\\*|/|\\%|\\^|\\&\\&|\\&|\\|\\||!=|==|<=|>=|<|>|=");
     regex ternary("\\?");
@@ -91,7 +92,10 @@ deque<token> tokenize(string input)
 	{
 	    line_number++;
 	    input = input.substr(1, input.length()-1); // remove one newline char
+	    int orig_length = input.length();
 	    ltrim(input);
+	    int diff = orig_length - input.length();
+	    string_pos = diff;	// reset position counter (include the trimmed whitespace)
 	    continue;
 	}
 	else
@@ -99,7 +103,7 @@ deque<token> tokenize(string input)
 	    cout << "Unrecognized Token: '" << input.substr(0, 20)  << "'" << endl;
 	    break;
 	}
-		
+	
 
 	result.push_back(token(t, match.str(), string_pos, string_pos + match.length(), line_number));
 	input = input.substr(match.length(), input.length() - match.length());

@@ -1,12 +1,17 @@
-int main()
+int global_var = 0;
+
+int test_func(int a1, int b1, int c1)
 {
-    int a = 2;
-    int b;
+    int result = a1 - b1 + c1;
+    return result;
+}
 
-    if (a > 2) {
-	int b = 4;
-	a = b + 2;
-    }
+int test_func(int,int,int);
 
-    return b;
+int main(int x, int y)
+{
+    int k = x + y;
+    int z = test_func(k+y,y,3);
+
+    return 0;
 }
