@@ -1,66 +1,52 @@
+	.file	"test.cpp"
 	.text
-	.attribute	4, 16
-	.attribute	5, "rv32i2p1_m2p0_a2p1_c2p0"
-	.file	"test.c"
-	.globl	factorial                       # -- Begin function factorial
-	.p2align	1
-	.type	factorial,@function
-factorial:                              # @factorial
-# %bb.0:
-	addi	sp, sp, -32
-	sw	ra, 28(sp)                      # 4-byte Folded Spill
-	sw	s0, 24(sp)                      # 4-byte Folded Spill
-	addi	s0, sp, 32
-	sw	a0, -16(s0)
-	lw	a0, -16(s0)
-	bnez	a0, .LBB0_2
-	j	.LBB0_1
-.LBB0_1:
-	li	a0, 1
-	sw	a0, -12(s0)
-	j	.LBB0_3
-.LBB0_2:
-	lw	a0, -16(s0)
-	sw	a0, -20(s0)                     # 4-byte Folded Spill
-	addi	a0, a0, -1
-	call	factorial
-	mv	a1, a0
-	lw	a0, -20(s0)                     # 4-byte Folded Reload
-	mul	a0, a0, a1
-	sw	a0, -12(s0)
-	j	.LBB0_3
-.LBB0_3:
-	lw	a0, -12(s0)
-	lw	ra, 28(sp)                      # 4-byte Folded Reload
-	lw	s0, 24(sp)                      # 4-byte Folded Reload
-	addi	sp, sp, 32
+	.p2align 4
+	.globl	_Z6popcnti
+	.type	_Z6popcnti, @function
+_Z6popcnti:
+.LFB0:
+	.cfi_startproc
+	movl	$32, %eax
+	xorl	%edx, %edx
+	.p2align 4
+	.p2align 4
+	.p2align 3
+.L2:
+	movl	%edi, %ecx
+	sarl	%edi
+	andl	$1, %ecx
+	addl	%ecx, %edx
+	subl	$1, %eax
+	jne	.L2
+	movl	%edx, %eax
 	ret
-.Lfunc_end0:
-	.size	factorial, .Lfunc_end0-factorial
-                                        # -- End function
-	.globl	main                            # -- Begin function main
-	.p2align	1
-	.type	main,@function
-main:                                   # @main
-# %bb.0:
-	addi	sp, sp, -16
-	sw	ra, 12(sp)                      # 4-byte Folded Spill
-	sw	s0, 8(sp)                       # 4-byte Folded Spill
-	addi	s0, sp, 16
-	li	a0, 0
-	sw	a0, -12(s0)
-	li	a0, 6
-	call	factorial
-	sw	a0, -16(s0)
-	lw	a0, -16(s0)
-	lw	ra, 12(sp)                      # 4-byte Folded Reload
-	lw	s0, 8(sp)                       # 4-byte Folded Reload
-	addi	sp, sp, 16
+	.cfi_endproc
+.LFE0:
+	.size	_Z6popcnti, .-_Z6popcnti
+	.section	.text.startup,"ax",@progbits
+	.p2align 4
+	.globl	main
+	.type	main, @function
+main:
+.LFB1:
+	.cfi_startproc
+	movl	$32, %edx
+	xorl	%ecx, %ecx
+	movl	$10, %eax
+	.p2align 4
+	.p2align 4
+	.p2align 3
+.L6:
+	movl	%eax, %esi
+	sarl	%eax
+	andl	$1, %esi
+	addl	%esi, %ecx
+	subl	$1, %edx
+	jne	.L6
+	movl	%ecx, %eax
 	ret
-.Lfunc_end1:
-	.size	main, .Lfunc_end1-main
-                                        # -- End function
-	.ident	"clang version 18.1.8"
-	.section	".note.GNU-stack","",@progbits
-	.addrsig
-	.addrsig_sym factorial
+	.cfi_endproc
+.LFE1:
+	.size	main, .-main
+	.ident	"GCC: (GNU) 14.2.1 20250207"
+	.section	.note.GNU-stack,"",@progbits

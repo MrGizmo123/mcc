@@ -1,0 +1,5 @@
+*.o
+mcc
+tests/
+asm_test/
+.ccls-cache

@@ -10,16 +10,15 @@ void emit_register_fetch(ASMRegister* reg,
 			 ostream& out)
 {
     string load_op = ldr(alureg); // either ldar or ldbr
-    asm(load_op);
+    out << "\t" << load_op;
     reg->emit(out);
     out << endl;
 }
 
 // takes a stack value and puts it in the aluregs
-void emit_stack_fetch(ASMStack* stk,
-		      Register alureg,
-		      ostream& out)
+void emit_stack_fetch(ASMStack *stk, Register alureg, ostream &out)
 {
+    // Thank god I wrote this comment!
     // this is asymmetric w.r.t. the two ALU regs because the builtin
     // instruction which loads a value from memory only works for the
     // A register (ldmaa)
@@ -69,7 +68,7 @@ void emit_ldb_operand(ASMOperand* src, ostream& out)
 	emit_register_fetch((ASMRegister*)src, B, out); // load operand into B
 	break;
     case MEMORY:
-	emit_stack_fetch((ASMStack*)src, B, out);
+	emit_stack_fetch((ASMStack*)src, B, out);  // load from stack into B reg
 	break;
     }
 }
@@ -80,13 +79,13 @@ void emit_lda_operand(ASMOperand* src, ostream& out)
     switch(src->type)
     {
     case IMMEDIATE:
-	src->emit(out);
+	src->emit(out);		// directly load into A reg
 	break;
     case REGISTER:
-	emit_register_fetch((ASMRegister*)src, A, out); // load operand into B
+	emit_register_fetch((ASMRegister*)src, A, out); // load operand into A
 	break;
     case MEMORY:
-	emit_stack_fetch((ASMStack*)src, A, out);
+	emit_stack_fetch((ASMStack*)src, A, out); // load from stack into A reg
 	break;
     }
 }

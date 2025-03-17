@@ -1,7 +1,5 @@
 #pragma once
 
-
-#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -249,7 +247,21 @@ public:
 
     virtual void emit(vector<ASMNode*>& result)
     {
+	// push all the arguments to stack in reverse order
+	for (auto it = args.rbegin();it != args.rend();++it)
+	{
+	    ASMOperand* op = (*it)->to_asm();
+	    result.push_back(new ASMPush(op));
+	}
 
+	result.push_back(new ASMCall(name));
+
+	unsigned int locations_to_remove = args.size();
+	if (locations_to_remove)
+	    result.push_back(new ASMDeAllocateStack(locations_to_remove));
+
+	ASMOperand* return_location = dest->to_asm();
+	result.push_back(new ASMLoad(return_location, new ASMRegister(r0)));
     }
 };
 
@@ -283,11 +295,19 @@ public:
 	out << endl;
     }
 
-    virtual void emit(vector<ASMNode*>& result)
+    virtual void emit(vector<ASMFunction*>& result)
     {
 	vector<ASMNode*> asm_body;
-	for (IRNode* s : body)
-	{
+
+	// args are pushed in reverse order
+	int stack_offset = -3; 	// because Stack(-1) is old val of rbp, Stack(-2) is return address
+	
+	for (string param : params) {
+	    asm_body.push_back(new ASMLoad(new ASMPsuedoReg(param), new ASMStack(stack_offset)));
+	    stack_offset--;
+	}
+	
+	for (IRNode* s : body) {
 	    s->emit(asm_body);
 	}
 	
@@ -312,13 +332,13 @@ public:
 
     virtual void emit(vector<ASMNode*>& result)
     {
-	vector<ASMNode*> asm_body;
+	vector<ASMFunction*> asm_body;
 
 	for (IRFunction* f  : functions) {
 	    f->emit(asm_body);
 	}
 	
-	ASMProgram* asm_prog = new ASMProgram((ASMFunction*)(asm_body[0]));
+	ASMProgram* asm_prog = new ASMProgram(asm_body);
         result.push_back(asm_prog);
     }
 };

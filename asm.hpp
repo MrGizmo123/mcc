@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <ostream>
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -44,7 +45,7 @@ public:
 	out << "ASM Node" << endl;
     }
 
-    virtual void legalize(unordered_map<string, int>& temps) {}
+    virtual void legalize(unordered_map<string, int>& temps, int& local_count) {}
 
     virtual void emit(ostream& out) { out << "asm_node" << endl; }
 };
@@ -68,17 +69,61 @@ public:
 
     virtual void pretty_print(ostream& out)
     {
-	out << "AllocateStack(" << size << ")";
+	out << "AllocateStack(" << size << ")" << endl;
     }
 
     virtual void emit(ostream& out)
     {
-	com("Function prologue");
-	asmc("ldrs %r15", "move rsp to rbp");
+	com_self();
 	asm("ldas");
 	asm("ldbi " + to_string(size));
 	asm("sub");
 	asm("ldsa");
+	out << endl;
+    }
+};
+
+class ASMDeAllocateStack : public ASMInstruction
+{
+public:
+    int size;
+    ASMDeAllocateStack(int _size) : size(_size) {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "DeAllocateStack(" << size << ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+	asm("ldas");
+	asm("ldbi " + to_string(size));
+	asm("add");
+	asm("ldsa");
+	out << endl;
+    }
+};
+
+class ASMCall : public ASMInstruction
+{
+public:
+    string target;
+
+    ASMCall(string _target) : target(_target) {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Call(" + target + ")" << endl;
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com_self();
+	
+	asmc("subr " + target, "function call");
+	asmc("subr2 " + target, "function call part 2");
+
 	out << endl;
     }
 };
@@ -89,15 +134,25 @@ public:
     string name;
     vector<ASMNode*> body;
     ASMAllocateStack* stack_space;
+    int num_args;
 
     ASMFunction(string _name, vector<ASMNode*> _body)
-    : body(_body),
-    name(_name)
+    :
+	body(_body),
+	name(_name),
+	stack_space(nullptr)
     {}
 
     virtual void pretty_print(ostream& out)
     {
 	out << name << ":" << endl;
+
+	if (stack_space)
+	{
+	    out << "\t";
+	    stack_space->pretty_print(out);
+	}
+
 	for (ASMNode* i : body) {
 	    out << "\t";
 	    i->pretty_print(out);
@@ -106,46 +161,68 @@ public:
 
     virtual void legalize(unordered_map<string, int>& temps)
     {
+	int local_count = 0;
+	
 	for (ASMNode* i : body) {
-	    i->legalize(temps);
+	    i->legalize(temps, local_count);
 	}
-	stack_space = new ASMAllocateStack(temps.size()); // save how many locations we need to reserve on the stack
+	
+	stack_space = new ASMAllocateStack(local_count); // save how many locations we need to reserve on the stack
     }
 
     virtual void emit(ostream& out)
-    {
+    {	
 	out << name << ":" << endl;
+
+	com("Function prologue");
+	asmc("pushr %r15", "save current rbp to stack");
+	asmc("pushr2 %r15", "save current rbp to stack part 2");
+	asmc("ldrs %r15", "move rsp to rbp");
 	
 	stack_space->emit(out);	// function prologue
 	
 	for (ASMNode* i : body) {
 	    i->emit(out);
 	}
+	
     }
 };
 
 class ASMProgram : public ASMNode
 {
 public:
-    ASMFunction* entry;
-    ASMProgram(ASMFunction* _entry) : entry(_entry) {}
+    vector<ASMFunction*> functions;
+    
+    ASMProgram(vector<ASMFunction*> _functions) : functions(_functions) {}
 
     virtual void pretty_print(ostream& out)
     {
 	out << "prog" << endl;
-	entry->pretty_print(out);
+
+	for (ASMFunction* func : functions) {
+	    func->pretty_print(out);
+	}
     }
 
     virtual void legalize(unordered_map<string, int>& temps)
     {
-	entry->legalize(temps);
+	int locals_count;	// this is useless, just to make the function signature fit
+	for (ASMFunction* func : functions) {
+	    func->legalize(temps);
+	}
     }
 
     virtual void emit(ostream& out)
     {
 	com("program");
 	asmc("lds 0xfffe", "initialize stack pointer");
-	entry->emit(out);
+	asmc("ldrs %15", "initialize rbp");
+	asmc("jmp main", "jump to the main function label (not call)");
+
+	for (ASMFunction* func : functions) {
+	    func->emit(out);
+	}
+	
 	asmc("hlt", "halt at the end of program");
     }
 };
@@ -162,7 +239,7 @@ public:
 	out << "ASM Operand";
     }
 
-    virtual ASMOperand* legalize_op(unordered_map<string, int>& temps)
+    virtual ASMOperand* legalize_op(unordered_map<string, int>& temps, int& local_count)
     {
 	return this;
     }
@@ -172,6 +249,51 @@ public:
 	out << "location" << endl;
     }
 };
+
+void emit_lda_operand(ASMOperand* src,
+		      ostream& out);
+
+void emit_ldb_operand(ASMOperand* src,
+		      ostream& out);
+
+void emit_sta_operand(ASMOperand* dest,
+		      ostream& out);
+
+void emit_stb_operand(ASMOperand* dest,
+		      ostream& out);
+
+
+class ASMPush : public ASMNode
+{
+public:
+    ASMOperand* op;
+
+    ASMPush(ASMOperand* _op) : op(_op) {}
+
+    virtual void pretty_print(ostream& out)
+    {
+	out << "Push(";
+	op->pretty_print(out);
+	out << ")" << endl;
+    }
+
+    virtual void legalize(unordered_map<string, int>& temps, int& local_count)
+    {
+	op = op->legalize_op(temps, local_count);
+    }
+
+    virtual void emit(ostream& out)
+    {
+	com("Push an operand to stack");
+	emit_lda_operand(op, out);
+	asmc("ldra %r14", "load the value to be pushed into r14");
+	asmc("pushr %r14", "push value in r14");
+	asm("pushr2 %r14");
+	out << endl;
+    }
+    
+};
+
 
 class ASMImmediate : public ASMOperand
 {
@@ -212,6 +334,11 @@ public:
     }
 };
 
+// takes a GP register and puts it in the aluregs
+void emit_register_fetch(ASMRegister* reg,
+			 Register alureg,
+			 ostream& out);
+
 class ASMStack : public ASMOperand
 {
 public:
@@ -227,11 +354,29 @@ public:
     {
 	com("Stack");
 	asmc("ldar %r15", "load rsp into A register");
-	asmc("ldbi " + to_string(offset), "load offset into B reg");
-	asmc("sub", " now address is stored in A reg, can be acessed using ldmaa");
+
+	if (offset == 0)	// no further action is needed
+	{
+	    com("As offset is 0, no further action is needed");
+	    out << endl;
+	    return;
+	}
+
+	asmc("ldbi " + to_string(abs(offset)), "load offset into B reg");
+
+	if (offset > 0)
+	    asmc("sub", " now address is stored in A reg, can be acessed using ldmaa");
+	else
+	    asmc("add", " now address is stored in A reg, can be acessed using ldmaa");
+	
 	out << endl;
     }
 };
+
+// takes a stack value and puts it in the aluregs
+void emit_stack_fetch(ASMStack* stk,
+		      Register alureg,
+		      ostream& out);
 
 class ASMPsuedoReg : public ASMOperand
 {
@@ -244,11 +389,12 @@ public:
 	out << "Psuedo(" << ident << ")";
     }
 
-    virtual ASMOperand* legalize_op(unordered_map<string, int>& temps)
+    virtual ASMOperand* legalize_op(unordered_map<string, int>& temps, int& local_count)
     {
         if (temps.count(ident) == 0)
 	{
-	    temps[ident] = temps.size(); // the size will give the offset for the stack
+	    temps[ident] = local_count; // the size will give the offset for the stack
+	    local_count++;		 // add one to the locals count
 	    return new ASMStack(temps[ident]);
 	}
 
@@ -256,27 +402,6 @@ public:
     }
 };
 
-// takes a GP register and puts it in the aluregs
-void emit_register_fetch(ASMRegister* reg,
-			 Register alureg,
-			 ostream& out);
-
-// takes a stack value and puts it in the aluregs
-void emit_stack_fetch(ASMStack* stk,
-		      Register alureg,
-		      ostream& out);
-
-void emit_lda_operand(ASMOperand* src,
-		      ostream& out);
-
-void emit_ldb_operand(ASMOperand* src,
-		      ostream& out);
-
-void emit_sta_operand(ASMOperand* dest,
-		      ostream& out);
-
-void emit_stb_operand(ASMOperand* dest,
-		      ostream& out);
 
 class ASMLoad : public ASMInstruction
 {
@@ -298,10 +423,10 @@ public:
 	out << ")" << endl;
     }
 
-    virtual void legalize(unordered_map<string, int>& temps)
+    virtual void legalize(unordered_map<string, int>& temps, int& local_count)
     {
-	dest = dest->legalize_op(temps);
-	src = src->legalize_op(temps);
+	dest = dest->legalize_op(temps, local_count);
+	src = src->legalize_op(temps, local_count);
     }
 
     virtual void emit(ostream& out)
@@ -326,8 +451,14 @@ public:
     virtual void emit(ostream& out)
     {
 	com_self();
-	// asm("ret");
-	// asm("ret2");
+
+	com("Function epilogue");
+	asmc("ldsr %r15", "move rbp to rsp");
+	asmc("popr %r15", "retreive old rbp from stack");
+	asmc("popr2 %r15", "retreive old rbp from stack part2");
+	
+	asm("ret");
+	asm("ret2");
 	out << endl;
     }
 };
@@ -351,10 +482,10 @@ public:
 	out << ")" << endl;
     }
 
-    virtual void legalize(unordered_map<string, int>& temps)
+    virtual void legalize(unordered_map<string, int>& temps, int& local_count)
     {
-        dest = dest->legalize_op(temps);
-	src = src->legalize_op(temps);
+        dest = dest->legalize_op(temps, local_count);
+	src = src->legalize_op(temps, local_count);
     }
 };
 
@@ -382,11 +513,11 @@ public:
 	out << ")" << endl;
     }
 
-    virtual void legalize(unordered_map<string, int>& temps)
+    virtual void legalize(unordered_map<string, int>& temps, int& local_count)
     {
-        dest = dest->legalize_op(temps);
-	src1 = src1->legalize_op(temps);
-	src2 = src2->legalize_op(temps);
+        dest = dest->legalize_op(temps, local_count);
+	src1 = src1->legalize_op(temps, local_count);
+	src2 = src2->legalize_op(temps, local_count);
     }
 };
 
@@ -416,7 +547,7 @@ public:
 
 	asmc("ldai 0xffff", "we subtract the number from -1 to get its bitwise inversion");
 	asm("sub");
-
+	
 	emit_sta_operand(dest, out);
 
 	out << endl << endl;

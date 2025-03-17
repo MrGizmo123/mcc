@@ -1,17 +1,14 @@
-int global_var = 0;
 
-int test_func(int a1, int b1, int c1)
+int fun1(int a, int b)
 {
-    int result = a1 - b1 + c1;
-    return result;
+	return a + b;
 }
 
-int test_func(int,int,int);
+int fun1(int, int);
 
-int main(int x, int y)
+int main()
 {
-    int k = x + y;
-    int z = test_func(k+y,y,3);
+    int i = 2;
 
-    return 0;
+    return fun1(i, 3);
 }

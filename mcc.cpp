@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "asm.hpp"
 #include "parser.hpp"
 #include "tokenizer.h"
 #include "CLI11.hpp"
@@ -108,22 +109,22 @@ int main(int argc, char** argv)
 
     ir_prog->pretty_print(cout);
 
-    // cout << "---------------------------------------------------" << endl;
+    cout << "---------------------------------------------------" << endl;
 
-    // vector<ASMNode*> assembly;
-    // ir_prog->emit(assembly);
+    vector<ASMNode*> assembly;
+    ir_prog->emit(assembly);
 
-    // assembly[0]->pretty_print(cout);
+    assembly[0]->pretty_print(cout);
 
-    // cout << "---------------------------------------------------" << endl;
+    cout << "---------------------------------------------------" << endl;
 
-    // unordered_map<string, int> temps;
-    // assembly[0]->legalize(temps);
-    // assembly[0]->pretty_print(cout);
+    unordered_map<string, int> temps;
+    ((ASMProgram*)assembly[0])->legalize(temps);
+    assembly[0]->pretty_print(cout);
 
-    // cout << "---------------------------------------------------" << endl;
+    cout << "---------------------------------------------------" << endl;
 
-    // assembly[0]->emit(cout);
+    assembly[0]->emit(cout);
 
     
 }
