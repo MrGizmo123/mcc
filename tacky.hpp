@@ -10,6 +10,8 @@ using namespace std;
 
 string uniq_label();
 
+bool is_function_intrinsic(string name);
+
 class IRNode
 {
 public:
@@ -245,23 +247,46 @@ public:
 	out << "\b\b)" << endl;
     }
 
-    virtual void emit(vector<ASMNode*>& result)
+    virtual void emit(vector<ASMNode *> &result)
     {
-	// push all the arguments to stack in reverse order
-	for (auto it = args.rbegin();it != args.rend();++it)
-	{
-	    ASMOperand* op = (*it)->to_asm();
-	    result.push_back(new ASMPush(op));
+	if (is_function_intrinsic(name))
+        {
+	    // put each operand in regsiters starting from r1,r2,...
+	    int i = 1;
+	    for (auto it = args.begin(); it != args.end(); ++it)
+	    {
+
+		ASMOperand *op = (*it)->to_asm();
+		
+		result.push_back(new ASMLoad(
+					     new ASMRegister((Register)i),
+					     op));
+		
+		i++;
+            }
+
+            result.push_back(new ASMCall(name));
 	}
+	else
+	{    
+	
+	    // push all the arguments to stack in reverse order
+	    for (auto it = args.rbegin();it != args.rend();++it)
+	    {
+		ASMOperand* op = (*it)->to_asm();
+		result.push_back(new ASMPush(op));
+	    }
 
-	result.push_back(new ASMCall(name));
+	    result.push_back(new ASMCall(name));
 
-	unsigned int locations_to_remove = args.size();
-	if (locations_to_remove)
-	    result.push_back(new ASMDeAllocateStack(locations_to_remove));
+	    unsigned int locations_to_remove = args.size();
+	    if (locations_to_remove)
+		result.push_back(new ASMDeAllocateStack(locations_to_remove));
+        }
 
+        // common for both intrinsic and normal functions
 	ASMOperand* return_location = dest->to_asm();
-	result.push_back(new ASMLoad(return_location, new ASMRegister(r0)));
+        result.push_back(new ASMLoad(return_location, new ASMRegister(r0)));
     }
 };
 

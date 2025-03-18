@@ -1,8 +1,22 @@
 #include "asm.hpp"
 
+#include <set>
+
 #define ldr(x) (x == A ? "ldar " : "ldbr ")
 
 using namespace std;
+
+set<string> which_intrinsics_to_include;
+
+void include_intrinsic(string name)
+{
+    which_intrinsics_to_include.insert(name);
+}
+
+set<string> get_intrinsics_to_be_included()
+{
+    return which_intrinsics_to_include;
+}
 
 // takes a GP register and puts it in the aluregs
 void emit_register_fetch(ASMRegister* reg,
@@ -16,7 +30,7 @@ void emit_register_fetch(ASMRegister* reg,
 }
 
 // takes a stack value and puts it in the aluregs
-void emit_stack_fetch(ASMStack *stk, Register alureg, ostream &out)
+	void emit_stack_fetch(ASMStack *stk, Register alureg, ostream &out)
 {
     // Thank god I wrote this comment!
     // this is asymmetric w.r.t. the two ALU regs because the builtin

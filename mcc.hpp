@@ -19,3 +19,5 @@ public:
 CodeContext get_code_context(token tok, int number_of_lines=1);
 string get_line_of_code(int);
 string file_name();
+
+string read_file(string filename);

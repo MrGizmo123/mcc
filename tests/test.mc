@@ -1,14 +1,10 @@
 
-int fun1(int a, int b)
-{
-	return a + b;
-}
-
-int fun1(int, int);
+int __input();
 
 int main()
 {
-    int i = 2;
 
-    return fun1(i, 3);
+    int userin = __input();
+    
+    return userin + 3;
 }

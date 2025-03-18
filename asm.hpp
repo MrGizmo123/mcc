@@ -7,6 +7,9 @@
 #include <unordered_map>
 #include <iomanip>
 #include <sstream>
+#include <set>
+
+#include "mcc.hpp"
 
 using namespace std;
 
@@ -16,7 +19,7 @@ using namespace std;
 #define asml(x) out << left << x << ":" << endl 
 #define com_self() stringstream stream; pretty_print(stream); com(stream.str())
 
-using namespace std;
+
 
 enum Register
 {
@@ -34,6 +37,11 @@ enum ASMOperandType
     IMMEDIATE,
     PSUEDO
 };
+
+bool is_function_intrinsic(string name);
+vector<string> get_intrinsic_dependencies(string name);
+void include_intrinsic(string name);
+set<string> get_intrinsics_to_be_included();
 
 string uniq_label();
 
@@ -121,10 +129,22 @@ public:
     {
 	com_self();
 	
-	asmc("subr " + target, "function call");
+	asmc("subr", "function call");
 	asmc("subr2 " + target, "function call part 2");
 
-	out << endl;
+	// if it is intrinsic function, 
+        if (is_function_intrinsic(target))
+	{
+	    include_intrinsic(target);
+
+	    vector<string> deps = get_intrinsic_dependencies(target);
+	    for (string dependency : deps)
+	    {
+		include_intrinsic(dependency);
+	    }
+        }
+
+        out << endl;
     }
 };
 
@@ -216,7 +236,7 @@ public:
     {
 	com("program");
 	asmc("lds 0xfffe", "initialize stack pointer");
-	asmc("ldrs %15", "initialize rbp");
+	asmc("ldrs %r15", "initialize rbp");
 	asmc("jmp main", "jump to the main function label (not call)");
 
 	for (ASMFunction* func : functions) {
@@ -224,6 +244,21 @@ public:
 	}
 	
 	asmc("hlt", "halt at the end of program");
+
+        out << ";; Intrinsic functions are inserted after this point" << endl << endl;
+	
+	// include assembly for intrinsic functions
+	set<string> intrinsics = get_intrinsics_to_be_included();
+	for (string intrinsic : intrinsics)
+	{
+	    out << endl;
+	    cout << ";; --------- Intrinsic " + intrinsic + "---------" << endl;
+	    out << endl;
+	
+	    string code = read_file("intrinsics/" + intrinsic + ".s");
+	    out << code << endl;
+	}
+	
     }
 };
 
