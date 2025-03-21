@@ -685,7 +685,7 @@ public:
 		fail("Wrong argument type at argument number " + to_string(i+1), debug_info);
 	}
 	
-	return func_type;
+	return func_type->return_type;
     }
 
     virtual IROperand* emit(vector<IRNode*>& result)

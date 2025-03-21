@@ -13,6 +13,8 @@ using namespace std;
 vector<string> lines_of_code;
 string code;
 string infile;
+string outfile;
+bool pretty_print = false;
 
 CodeContext get_code_context(token tok, int number_of_lines)
 {
@@ -79,6 +81,8 @@ int main(int argc, char** argv)
 {
     CLI::App app{"mcc - a small simple C compiler for the Mentat PCB computer"};
     app.add_option("-i,--input", infile, "The file to be compiled");
+    app.add_option("-o,--output", outfile, "The output asm file");
+    app.add_flag("-v,--verbose",  pretty_print, "Print each compiler pass");
     CLI11_PARSE(app, argc, argv);
 
     code = read_file(infile);
@@ -89,9 +93,12 @@ int main(int argc, char** argv)
     //cout << "Tok: " << tokens << endl;
 
     Program* p = parse(tokens);
-    p->pretty_print(cout);
+    if (pretty_print)
+    {
+	p->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
+	cout << "---------------------------------------------------" << endl;
+    }
 
     map<string, identifier> var_map;
     p->resolve_identifiers(var_map);
@@ -100,31 +107,51 @@ int main(int argc, char** argv)
 
     map<string, symbol> symbol_table;
     p->do_type_checking(symbol_table);
-    p->pretty_print(cout);
-    
-    cout << "---------------------------------------------------" << endl;
 
+    if (pretty_print)
+    {
+	p->pretty_print(cout);
+    
+	cout << "---------------------------------------------------" << endl;
+    }
+    
     vector<IRNode*> tacky;
     IRProgram* ir_prog = (IRProgram*)p->emit(tacky);
 
-    ir_prog->pretty_print(cout);
+    if (pretty_print)
+    {
+	ir_prog->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
-
+	cout << "---------------------------------------------------" << endl;
+    }
+    
     vector<ASMNode*> assembly;
     ir_prog->emit(assembly);
 
-    assembly[0]->pretty_print(cout);
+    if (pretty_print)
+    {
+	assembly[0]->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
-
+	cout << "---------------------------------------------------" << endl;
+    }
+    
     unordered_map<string, int> temps;
     ((ASMProgram*)assembly[0])->legalize(temps);
-    assembly[0]->pretty_print(cout);
 
-    cout << "---------------------------------------------------" << endl;
+    if (pretty_print)
+    {
+	assembly[0]->pretty_print(cout);
 
-    assembly[0]->emit(cout);
+	cout << "---------------------------------------------------" << endl;
+    }
+    
+    if (pretty_print)
+	assembly[0]->emit(cout);
 
+    // write to the file
+
+    ofstream output_file(outfile, ios::trunc);
+    assembly[0]->emit(output_file);
+    output_file.close();
     
 }

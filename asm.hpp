@@ -202,6 +202,23 @@ public:
 	stack_space->emit(out);	// function prologue
 	
 	for (ASMNode* i : body) {
+
+            // if we are in the main function, then all return
+            // statements should be treated as halt statements as
+            // there is no caller function to return to, it just ends
+            // up repeating itself in an infinite loo[]
+
+	    // stringstream is required to check the type of 'i' (I
+	    // know this is against OOP but some people just want to
+	    // watch the world burn)
+	    
+            stringstream type_of_node;
+	    i->pretty_print(type_of_node);
+	    if (name == "main" && type_of_node.str() == "Return()\n")
+	    {
+		asmc("hlt", "halt as this is a return point of the main function");
+	    }
+	    
 	    i->emit(out);
 	}
 	
@@ -252,10 +269,10 @@ public:
 	for (string intrinsic : intrinsics)
 	{
 	    out << endl;
-	    cout << ";; --------- Intrinsic " + intrinsic + "---------" << endl;
+	    out << ";; --------- Intrinsic " + intrinsic + "---------" << endl;
 	    out << endl;
 	
-	    string code = read_file("intrinsics/" + intrinsic + ".s");
+	    string code = read_file("/usr/lib/mcc/intrinsics/" + intrinsic + ".s");
 	    out << code << endl;
 	}
 	

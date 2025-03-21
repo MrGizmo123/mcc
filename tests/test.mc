@@ -1,10 +1,17 @@
 
-int __input();
+int __display(int);
+int __init_display();
+int __clear_display();
 
 int main()
 {
-
-    int userin = __input();
+    __init_display();
     
-    return userin + 3;
+    for (int i=1;i<=5;i++)
+    {
+	__clear_display();
+	__display(i+11);
+    }
+    
+    return 0;
 }
